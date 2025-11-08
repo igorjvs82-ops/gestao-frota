@@ -1,0 +1,54 @@
+name: CI/CD - Gestao de Frota
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Testes
+        run: npm test --if-present
+
+      - name: Build
+        run: npm run build
+
+  deploy-vercel:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+
+    steps:
+      - name: Chamar Deploy Hook da Vercel
+        run: |
+          if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            curl -X POST "$VERCEL_DEPLOY_HOOK_MAIN"
+          elif [ "${GITHUB_REF}" = "refs/heads/dev" ]; then
+            curl -X POST "$VERCEL_DEPLOY_HOOK_DEV"
+          fi
+        env:
+          VERCEL_DEPLOY_HOOK_MAIN: ${{ secrets.VERCEL_DEPLOY_HOOK_MAIN }}
+          VERCEL_DEPLOY_HOOK_DEV: ${{ secrets.VERCEL_DEPLOY_HOOK_DEV }}
