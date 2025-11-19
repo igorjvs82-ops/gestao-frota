@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestão de Frota</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <nav class="top-nav" aria-label="Menu principal">
+      <div class="brand">
+        <span class="logo-dot" aria-hidden="true"></span>
+        <div>
+          <p class="eyebrow">Central da frota</p>
+          <strong>Operações 24/7</strong>
+        </div>
+      </div>
+      <ul class="nav-links">
+        <li><a href="#" class="active">Visão geral</a></li>
+        <li><a href="#">Rotas & entregas</a></li>
+        <li><a href="#">Abastecimento</a></li>
+        <li><a href="#">Alertas</a></li>
+        <li><a href="#">Configurações</a></li>
+      </ul>
+      <div class="nav-actions" aria-label="Ações principais">
+        <button type="button" class="btn ghost small">Adicionar veículo</button>
+        <button type="button" class="btn primary small">Nova ordem de serviço</button>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Dashboard operacional</p>
+        <h1>Gestão de Frota Inteligente</h1>
+        <p class="subtitle">
+          Acompanhe em tempo real os principais indicadores dos veículos,
+          economize combustível e antecipe as manutenções críticas.
+        </p>
+        <div class="cta-group">
+          <button id="refresh-button" class="btn primary">Atualizar dados</button>
+          <button class="btn ghost">Exportar relatório</button>
+        </div>
+      </div>
+      <div class="hero-card" aria-live="polite">
+        <p class="eyebrow">Utilização média</p>
+        <p class="hero-value"><span id="hero-utilization">0%</span></p>
+        <p class="hero-meta">Meta semanal: 78%</p>
+      </div>
+    </header>
+
+    <main>
+      <section class="filters">
+        <form id="filter-form">
+          <label>
+            Buscar veículo
+            <input type="search" id="search-input" placeholder="Placa, modelo ou motorista" />
+          </label>
+          <label>
+            Status
+            <select id="status-select">
+              <option value="todos">Todos</option>
+              <option value="disponivel">Disponível</option>
+              <option value="em_rota">Em rota</option>
+              <option value="manutencao">Manutenção</option>
+            </select>
+          </label>
+          <label>
+            Eficiência mínima
+            <input type="number" id="efficiency-input" min="0" max="30" step="0.5" value="0" />
+          </label>
+          <button type="submit" class="btn primary">Aplicar filtros</button>
+        </form>
+      </section>
+
+      <section class="grid">
+        <article class="card">
+          <header>
+            <h2>Métricas da semana</h2>
+            <p class="card-subtitle">Atualizado automaticamente a cada 15 minutos</p>
+          </header>
+          <div class="metrics" id="metrics-panel" aria-live="polite"></div>
+        </article>
+
+        <article class="card">
+          <header>
+            <h2>Alertas de manutenção</h2>
+            <p class="card-subtitle">Próximas inspeções e serviços críticos</p>
+          </header>
+          <ul class="alerts" id="alerts-list"></ul>
+        </article>
+      </section>
+
+      <section class="card quick-actions" aria-label="Ações rápidas">
+        <header>
+          <h2>Ações rápidas</h2>
+          <p class="card-subtitle">Menus e atalhos que você já utilizava continuam disponíveis abaixo.</p>
+        </header>
+        <div class="quick-actions-group">
+          <button type="button" class="btn ghost">Agendar manutenção</button>
+          <button type="button" class="btn ghost">Enviar alerta para motoristas</button>
+          <button type="button" class="btn ghost">Revisar checklist pré-viagem</button>
+          <button type="button" class="btn ghost">Emitir ordem de abastecimento</button>
+          <button type="button" class="btn ghost">Cadastrar rota prioritária</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <header class="table-header">
+          <div>
+            <h2>Veículos monitorados</h2>
+            <p class="card-subtitle">
+              Clique em uma linha para visualizar o histórico de manutenção e os dados do motorista.
+            </p>
+          </div>
+          <span id="table-count" class="badge">0 veículos</span>
+        </header>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Veículo</th>
+                <th>Motorista</th>
+                <th>Status</th>
+                <th>Última manutenção</th>
+                <th>Km atuais</th>
+                <th>Autonomia média</th>
+              </tr>
+            </thead>
+            <tbody id="vehicles-table"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" id="details-panel" hidden>
+        <header>
+          <h2 id="details-title">Detalhes do veículo</h2>
+        </header>
+        <div id="details-content"></div>
+      </section>
+    </main>
+
+    <footer>
+      <p>© <span id="year"></span> Gestão de Frota. Construído com JavaScript puro.</p>
+    </footer>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
