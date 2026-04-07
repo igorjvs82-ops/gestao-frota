@@ -1,0 +1,347 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StudyModeType {
+  DEVOTIONAL
+  DAILY_STUDY
+  SMALL_GROUP
+  EXPOSITORY_SERMON
+  DOCTRINAL_STUDY
+}
+
+enum ReviewStatus {
+  PENDING
+  PASS
+  PASS_WITH_WARNINGS
+  FAIL
+}
+
+enum ExportFormat {
+  PPTX
+  PDF
+  DOCX
+  MARKDOWN
+}
+
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  EDITOR
+  REVIEWER
+  VIEWER
+}
+
+model User {
+  id              String            @id @default(uuid())
+  email           String            @unique
+  name            String
+  passwordHash    String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  memberships     WorkspaceMember[]
+  studyProjects   StudyProject[]    @relation("ProjectAuthor")
+  studyVersions   StudyVersion[]    @relation("VersionAuthor")
+  notes           Note[]
+  comments        Comment[]
+}
+
+model Organization {
+  id              String            @id @default(uuid())
+  name            String
+  slug            String            @unique
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  workspaces      Workspace[]
+}
+
+model Workspace {
+  id              String            @id @default(uuid())
+  organizationId  String
+  name            String
+  slug            String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  organization    Organization      @relation(fields: [organizationId], references: [id])
+  members         WorkspaceMember[]
+  studyProjects   StudyProject[]
+  series          Series[]
+  doctrineTopics  DoctrineTopic[]
+  theologyProfile TheologyProfile?
+  audienceProfiles AudienceProfile[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, updatedAt])
+}
+
+model WorkspaceMember {
+  id              String            @id @default(uuid())
+  workspaceId     String
+  userId          String
+  role            WorkspaceRole
+  createdAt       DateTime          @default(now())
+
+  workspace       Workspace         @relation(fields: [workspaceId], references: [id])
+  user            User              @relation(fields: [userId], references: [id])
+
+  @@unique([workspaceId, userId])
+}
+
+model StudyProject {
+  id              String            @id @default(uuid())
+  workspaceId      String
+  seriesId         String?
+  title            String
+  summary          String?
+  sourceInput      Json
+  status           String            @default("draft")
+  authorId         String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  workspace        Workspace         @relation(fields: [workspaceId], references: [id])
+  series           Series?           @relation(fields: [seriesId], references: [id])
+  author           User              @relation("ProjectAuthor", fields: [authorId], references: [id])
+  versions         StudyVersion[]
+  tags             StudyProjectTag[]
+  approvals        ApprovalWorkflow[]
+
+  @@index([workspaceId, updatedAt])
+}
+
+model StudyVersion {
+  id               String            @id @default(uuid())
+  studyProjectId   String
+  versionNumber    Int
+  mode             StudyModeType
+  content          Json
+  status           String            @default("draft")
+  authorId         String
+  createdAt        DateTime          @default(now())
+
+  studyProject     StudyProject      @relation(fields: [studyProjectId], references: [id])
+  author           User              @relation("VersionAuthor", fields: [authorId], references: [id])
+  slideDecks       SlideDeck[]
+  reviewJobs       ReviewJob[]
+  exportJobs       ExportJob[]
+  notes            Note[]
+  comments         Comment[]
+
+  @@unique([studyProjectId, versionNumber, mode])
+  @@index([mode, createdAt])
+}
+
+model BiblicalPassage {
+  id               String            @id @default(uuid())
+  reference        String            @unique
+  book             String
+  chapterStart     Int
+  verseStart       Int
+  chapterEnd       Int?
+  verseEnd         Int?
+  testament        String
+  canonicalOrder   Int
+}
+
+model DoctrineTopic {
+  id               String            @id @default(uuid())
+  workspaceId      String
+  title            String
+  description      String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  workspace        Workspace         @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId, title])
+}
+
+model Series {
+  id               String            @id @default(uuid())
+  workspaceId      String
+  title            String
+  description      String?
+  createdAt        DateTime          @default(now())
+
+  workspace        Workspace         @relation(fields: [workspaceId], references: [id])
+  studyProjects    StudyProject[]
+}
+
+model SlideDeck {
+  id               String            @id @default(uuid())
+  studyVersionId   String
+  visualTemplateId String?
+  title            String
+  themeVariant     String            @default("dark")
+  structure        Json
+  createdAt        DateTime          @default(now())
+
+  studyVersion     StudyVersion      @relation(fields: [studyVersionId], references: [id])
+  visualTemplate   VisualTemplate?   @relation(fields: [visualTemplateId], references: [id])
+  slides           Slide[]
+}
+
+model Slide {
+  id               String            @id @default(uuid())
+  slideDeckId      String
+  position         Int
+  type             String
+  content          Json
+  imageAssetId     String?
+
+  slideDeck        SlideDeck         @relation(fields: [slideDeckId], references: [id])
+  imageAsset       ImageAsset?       @relation(fields: [imageAssetId], references: [id])
+
+  @@unique([slideDeckId, position])
+}
+
+model VisualTemplate {
+  id               String            @id @default(uuid())
+  workspaceId      String?
+  name             String
+  definition       Json
+  isSystem         Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+
+  slideDecks       SlideDeck[]
+}
+
+model ImageAsset {
+  id               String            @id @default(uuid())
+  workspaceId      String
+  provider         String
+  prompt           String
+  url              String
+  metadata         Json?
+  createdAt        DateTime          @default(now())
+}
+
+model PromptTemplate {
+  id               String            @id @default(uuid())
+  key              String
+  version          Int
+  mode             StudyModeType?
+  role             String
+  objective        String
+  constraints      Json
+  outputSchema     Json
+  theologyChecks   Json
+  createdAt        DateTime          @default(now())
+
+  @@unique([key, version])
+}
+
+model TheologyProfile {
+  id               String            @id @default(uuid())
+  workspaceId      String            @unique
+  name             String
+  config           Json
+
+  workspace        Workspace         @relation(fields: [workspaceId], references: [id])
+}
+
+model AudienceProfile {
+  id               String            @id @default(uuid())
+  workspaceId      String
+  name             String
+  config           Json
+
+  workspace        Workspace         @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId, name])
+}
+
+model ExportJob {
+  id               String            @id @default(uuid())
+  studyVersionId   String
+  format           ExportFormat
+  status           JobStatus         @default(QUEUED)
+  outputUrl        String?
+  errorMessage     String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  studyVersion     StudyVersion      @relation(fields: [studyVersionId], references: [id])
+
+  @@index([status, createdAt])
+}
+
+model ReviewJob {
+  id               String            @id @default(uuid())
+  studyVersionId   String
+  status           JobStatus         @default(QUEUED)
+  reviewStatus     ReviewStatus      @default(PENDING)
+  report           Json?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  studyVersion     StudyVersion      @relation(fields: [studyVersionId], references: [id])
+}
+
+model Tag {
+  id               String            @id @default(uuid())
+  workspaceId      String
+  label            String
+  createdAt        DateTime          @default(now())
+
+  projectLinks     StudyProjectTag[]
+
+  @@unique([workspaceId, label])
+}
+
+model StudyProjectTag {
+  studyProjectId   String
+  tagId            String
+
+  studyProject     StudyProject      @relation(fields: [studyProjectId], references: [id])
+  tag              Tag               @relation(fields: [tagId], references: [id])
+
+  @@id([studyProjectId, tagId])
+}
+
+model Note {
+  id               String            @id @default(uuid())
+  studyVersionId   String
+  authorId         String
+  content          String
+  createdAt        DateTime          @default(now())
+
+  studyVersion     StudyVersion      @relation(fields: [studyVersionId], references: [id])
+  author           User              @relation(fields: [authorId], references: [id])
+}
+
+model Comment {
+  id               String            @id @default(uuid())
+  studyVersionId   String
+  authorId         String
+  blockId          String?
+  content          String
+  createdAt        DateTime          @default(now())
+
+  studyVersion     StudyVersion      @relation(fields: [studyVersionId], references: [id])
+  author           User              @relation(fields: [authorId], references: [id])
+}
+
+model ApprovalWorkflow {
+  id               String            @id @default(uuid())
+  studyProjectId   String
+  currentStage     String
+  approvers        Json
+  history          Json
+  updatedAt        DateTime          @updatedAt
+
+  studyProject     StudyProject      @relation(fields: [studyProjectId], references: [id])
+}
