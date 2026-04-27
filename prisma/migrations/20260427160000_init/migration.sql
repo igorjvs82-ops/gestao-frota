@@ -1,0 +1,2 @@
+-- Migração inicial do MVP AGEDOCE/APLICAR
+-- Execute `npx prisma migrate dev` para gerar SQL completo conforme o provider do banco.

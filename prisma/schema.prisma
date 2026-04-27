@@ -1,0 +1,403 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StatusBase { ATIVO INATIVO }
+enum StatusCiclo { ABERTO FECHADO EM_ANALISE }
+enum StatusRdoValidacao { rascunho enviado_d1 validado validado_com_ressalva pendente_correcao bloqueado }
+enum StatusPendencia { ABERTA EM_TRATAMENTO RESOLVIDA CANCELADA }
+enum Severidade { BAIXA MEDIA ALTA CRITICA }
+enum OrigemPendencia { RDO CICLO EVIDENCIA CHECKLIST }
+enum RoleNome { ENCARREGADO TECNICO_AMBIENTAL COORDENADOR ADMINISTRATIVO_RH PLANEJAMENTO AUDITOR_INTERNO CONSULTA }
+enum ResultadoAuditoria { aprovado_para_rev00 aprovado_com_ressalvas bloqueado }
+
+model Role {
+  id        String   @id @default(cuid())
+  nome      RoleNome @unique
+  users     User[]
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id           String    @id @default(cuid())
+  nome         String
+  email        String    @unique
+  senhaHash    String
+  roleId       String
+  obraId       String?
+  role         Role      @relation(fields: [roleId], references: [id])
+  obra         Obra?     @relation(fields: [obraId], references: [id])
+  auditLogs    AuditLog[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Obra {
+  id               String                 @id @default(cuid())
+  nome             String
+  contrato         String
+  atoConvocatorio  String
+  lote             String
+  contratante      String
+  fiscalizadora    String
+  objeto           String
+  status           StatusBase             @default(ATIVO)
+  pastaSharepoint  String?
+  ciclos           CicloMensal[]
+  municipios       Municipio[]
+  imoveis          Imovel[]
+  equipes          Equipe[]
+  colaboradores    Colaborador[]
+  veiculos         VeiculoEquipamento[]
+  users            User[]
+  pendencias       Pendencia[]
+  auditorias       AuditoriaPreCobrape[]
+  evidencias       Evidencia[]
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+}
+
+model CicloMensal {
+  id                String                 @id @default(cuid())
+  obraId            String
+  numeroRmeo        String
+  periodoInicio     DateTime
+  periodoFim        DateTime
+  revisao           String                 @default("Rev00")
+  finalidade        String
+  status            StatusCiclo            @default(ABERTO)
+  dataLimiteEnvio   DateTime
+  pastaSharepoint   String?
+  obra              Obra                   @relation(fields: [obraId], references: [id])
+  planejamentos     PlanejamentoSemanal[]
+  rdos              Rdo[]
+  evidencias        Evidencia[]
+  pendencias        Pendencia[]
+  imrs              Imr[]
+  auditorias        AuditoriaPreCobrape[]
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+}
+
+model Municipio {
+  id            String     @id @default(cuid())
+  obraId        String
+  nome          String
+  uf            String
+  ativo         Boolean    @default(true)
+  obra          Obra       @relation(fields: [obraId], references: [id])
+  imoveis       Imovel[]
+  equipesBase   Equipe[]
+  planejamentos PlanejamentoSemanal[]
+  rdos          Rdo[]
+  evidencias    Evidencia[]
+}
+
+model Imovel {
+  id           String     @id @default(cuid())
+  obraId       String
+  municipioId  String
+  codigo       String
+  proprietario String
+  latitude     Float?
+  longitude    Float?
+  kmlLink      String?
+  status       StatusBase @default(ATIVO)
+  observacoes  String?
+  obra         Obra       @relation(fields: [obraId], references: [id])
+  municipio    Municipio  @relation(fields: [municipioId], references: [id])
+  planejamentos PlanejamentoSemanal[]
+  rdos         Rdo[]
+  evidencias   Evidencia[]
+}
+
+model Equipe {
+  id                    String     @id @default(cuid())
+  obraId                String
+  nome                  String
+  municipioBaseId       String
+  encarregadoPadraoId   String?
+  tecnicoResponsavelId  String?
+  status                StatusBase @default(ATIVO)
+  obra                  Obra       @relation(fields: [obraId], references: [id])
+  municipioBase         Municipio  @relation(fields: [municipioBaseId], references: [id])
+  colaboradores         Colaborador[]
+  planejamentos         PlanejamentoSemanal[]
+  rdos                  Rdo[]
+}
+
+model Colaborador {
+  id          String     @id @default(cuid())
+  nome        String
+  funcao      String
+  vinculo     String
+  obraId      String
+  equipeId    String?
+  status      StatusBase @default(ATIVO)
+  dataInicio  DateTime
+  dataFim     DateTime?
+  obra        Obra       @relation(fields: [obraId], references: [id])
+  equipe      Equipe?    @relation(fields: [equipeId], references: [id])
+  maoDeObraRdo RdoMaoDeObra[]
+}
+
+model VeiculoEquipamento {
+  id                   String     @id @default(cuid())
+  obraId               String
+  tipo                 String
+  descricao            String
+  placa                String?
+  contratoLocacaoLink  String?
+  status               StatusBase @default(ATIVO)
+  observacoes          String?
+  obra                 Obra       @relation(fields: [obraId], references: [id])
+  planejamentos        PlanejamentoSemanal[]
+  rdoVeiculos          RdoVeiculoEquipamento[]
+}
+
+model Intervencao {
+  id             String             @id @default(cuid())
+  grupo          String
+  tipo           String
+  descricao      String
+  exigeImovel    Boolean            @default(true)
+  exigeFotos     Boolean            @default(true)
+  exigeKml       Boolean            @default(false)
+  exigeAsBuilt   Boolean            @default(false)
+  status         StatusBase         @default(ATIVO)
+  etapas         EtapaIntervencao[]
+  atividades     RdoAtividade[]
+  planejamentos  PlanejamentoSemanal[]
+  evidencias     Evidencia[]
+}
+
+model EtapaIntervencao {
+  id                String       @id @default(cuid())
+  intervencaoId     String
+  nome              String
+  ordem             Int
+  exigeFoto         Boolean      @default(false)
+  exigeMedicao      Boolean      @default(false)
+  exigeLegenda      Boolean      @default(false)
+  bloqueiaConclusao Boolean      @default(false)
+  intervencao       Intervencao  @relation(fields: [intervencaoId], references: [id])
+  atividades        RdoAtividade[]
+  planejamentos     PlanejamentoSemanal[]
+  evidencias        Evidencia[]
+}
+
+model PlanejamentoSemanal {
+  id                String               @id @default(cuid())
+  cicloId           String
+  semanaInicio      DateTime
+  semanaFim         DateTime
+  municipioId       String
+  equipeId          String
+  imovelId          String?
+  intervencaoId     String
+  etapaId           String?
+  encarregadoId     String
+  tecnicoId         String
+  veiculoPrevistoId String?
+  status            StatusBase           @default(ATIVO)
+  observacoes       String?
+  ciclo             CicloMensal          @relation(fields: [cicloId], references: [id])
+  municipio         Municipio            @relation(fields: [municipioId], references: [id])
+  equipe            Equipe               @relation(fields: [equipeId], references: [id])
+  imovel            Imovel?              @relation(fields: [imovelId], references: [id])
+  intervencao       Intervencao          @relation(fields: [intervencaoId], references: [id])
+  etapa             EtapaIntervencao?    @relation(fields: [etapaId], references: [id])
+  veiculoPrevisto   VeiculoEquipamento?  @relation(fields: [veiculoPrevistoId], references: [id])
+  rdos              Rdo[]
+}
+
+model Rdo {
+  id                 String                  @id @default(cuid())
+  cicloId            String
+  planejamentoId     String?
+  numeroRdo          String
+  dataRdo            DateTime
+  municipioId        String
+  imovelId           String?
+  equipeId           String
+  tecnicoId          String
+  encarregadoId      String
+  coordenadorId      String?
+  turnoManha         Boolean                 @default(false)
+  turnoTarde         Boolean                 @default(false)
+  turnoNoite         Boolean                 @default(false)
+  clima              String?
+  condicaoAcesso     String?
+  statusValidacao    StatusRdoValidacao      @default(rascunho)
+  pdfOficialLink     String?
+  enviadoFiscalizadora Boolean               @default(false)
+  ciclo              CicloMensal             @relation(fields: [cicloId], references: [id])
+  planejamento       PlanejamentoSemanal?    @relation(fields: [planejamentoId], references: [id])
+  municipio          Municipio               @relation(fields: [municipioId], references: [id])
+  imovel             Imovel?                 @relation(fields: [imovelId], references: [id])
+  equipe             Equipe                  @relation(fields: [equipeId], references: [id])
+  maoDeObra          RdoMaoDeObra[]
+  insumos            RdoInsumo[]
+  veiculos           RdoVeiculoEquipamento[]
+  atividades         RdoAtividade[]
+  ocorrencias        RdoOcorrencia[]
+  evidencias         Evidencia[]
+  pendencias         Pendencia[]
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+}
+
+model RdoMaoDeObra {
+  id            String       @id @default(cuid())
+  rdoId         String
+  funcao        String
+  colaboradorId String?
+  quantidade    Int
+  observacao    String?
+  rdo           Rdo          @relation(fields: [rdoId], references: [id])
+  colaborador   Colaborador? @relation(fields: [colaboradorId], references: [id])
+}
+
+model RdoInsumo {
+  id          String   @id @default(cuid())
+  rdoId       String
+  descricao   String
+  quantidade  Float
+  unidade     String
+  origem      String
+  observacao  String?
+  rdo         Rdo      @relation(fields: [rdoId], references: [id])
+}
+
+model RdoVeiculoEquipamento {
+  id                    String                @id @default(cuid())
+  rdoId                 String
+  veiculoEquipamentoId  String?
+  descricao             String
+  quantidade            Int
+  situacao              String
+  observacao            String?
+  rdo                   Rdo                   @relation(fields: [rdoId], references: [id])
+  veiculoEquipamento    VeiculoEquipamento?   @relation(fields: [veiculoEquipamentoId], references: [id])
+}
+
+model RdoAtividade {
+  id                String            @id @default(cuid())
+  rdoId             String
+  categoria         String
+  intervencaoId     String
+  etapaId           String?
+  descricao         String
+  status            String
+  impactaCronograma Boolean           @default(false)
+  impactaImr        Boolean           @default(false)
+  rdo               Rdo               @relation(fields: [rdoId], references: [id])
+  intervencao       Intervencao       @relation(fields: [intervencaoId], references: [id])
+  etapa             EtapaIntervencao? @relation(fields: [etapaId], references: [id])
+}
+
+model RdoOcorrencia {
+  id                String   @id @default(cuid())
+  rdoId             String
+  tipo              String
+  evento            String
+  causa             String
+  impacto           String
+  providencia       String
+  severidade        Severidade
+  impactaCronograma Boolean  @default(false)
+  impactaImr        Boolean  @default(false)
+  rdo               Rdo      @relation(fields: [rdoId], references: [id])
+}
+
+model Evidencia {
+  id               String            @id @default(cuid())
+  rdoId            String?
+  cicloId          String
+  obraId           String
+  municipioId      String?
+  imovelId         String?
+  intervencaoId    String?
+  etapaId          String?
+  tipoEvidencia    String
+  arquivoLink      String
+  nomeArquivo      String
+  dataHora         DateTime
+  latitude         Float?
+  longitude        Float?
+  medicaoVisivel   Boolean?
+  legenda          String?
+  statusValidacao  StatusRdoValidacao @default(enviado_d1)
+  rdo              Rdo?              @relation(fields: [rdoId], references: [id])
+  ciclo            CicloMensal       @relation(fields: [cicloId], references: [id])
+  obra             Obra              @relation(fields: [obraId], references: [id])
+  municipio        Municipio?        @relation(fields: [municipioId], references: [id])
+  imovel           Imovel?           @relation(fields: [imovelId], references: [id])
+  intervencao      Intervencao?      @relation(fields: [intervencaoId], references: [id])
+  etapa            EtapaIntervencao? @relation(fields: [etapaId], references: [id])
+}
+
+model Pendencia {
+  id                    String          @id @default(cuid())
+  obraId                String
+  cicloId               String
+  rdoId                 String?
+  origem                OrigemPendencia
+  origemId              String
+  descricao             String
+  severidade            Severidade
+  responsavelId         String
+  prazo                 DateTime
+  status                StatusPendencia @default(ABERTA)
+  impactoRmeo           Boolean         @default(false)
+  impactoImr            Boolean         @default(false)
+  evidenciaCorrecaoLink String?
+  obra                  Obra            @relation(fields: [obraId], references: [id])
+  ciclo                 CicloMensal     @relation(fields: [cicloId], references: [id])
+  rdo                   Rdo?            @relation(fields: [rdoId], references: [id])
+}
+
+model Imr {
+  id          String      @id @default(cuid())
+  cicloId      String
+  referencia   String
+  status       StatusBase @default(ATIVO)
+  observacoes  String?
+  ciclo        CicloMensal @relation(fields: [cicloId], references: [id])
+}
+
+model AuditoriaPreCobrape {
+  id                 String      @id @default(cuid())
+  obraId             String
+  cicloId            String
+  identificacao      Boolean     @default(false)
+  estrutura          Boolean     @default(false)
+  rdos               Boolean     @default(false)
+  fotos              Boolean     @default(false)
+  intervencoes       Boolean     @default(false)
+  materiais          Boolean     @default(false)
+  cronograma         Boolean     @default(false)
+  imrDocumentos      Boolean     @default(false)
+  apendices          Boolean     @default(false)
+  linguagemRastreabilidade Boolean @default(false)
+  resultado          ResultadoAuditoria @default(bloqueado)
+  observacoes        String?
+  obra               Obra        @relation(fields: [obraId], references: [id])
+  ciclo              CicloMensal @relation(fields: [cicloId], references: [id])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId       String?
+  entidade     String
+  entidadeId   String
+  acao         String
+  dados        Json?
+  createdAt    DateTime @default(now())
+  user         User?    @relation(fields: [userId], references: [id])
+}
